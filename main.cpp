@@ -91,11 +91,16 @@ int main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // 2D 三角形
+    // 2D 矩形
     float vertices[] = {
-            -0.5f, -0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            0.0f,  0.5f, 0.0f
+            0.5f, 0.5f, 0.0f,   // 右上角
+            0.5f, -0.5f, 0.0f,  // 右下角
+            -0.5f, -0.5f, 0.0f, // 左下角
+            -0.5f, 0.5f, 0.0f   // 左上角
+    };
+    unsigned int indices[] = { // 注意索引从0开始!
+            0, 1, 3, // 第一个三角形
+            1, 2, 3  // 第二个三角形
     };
 
     // 顶点缓冲对象
@@ -103,13 +108,17 @@ int main() {
     // 使用这些缓冲对象的好处是我们可以一次性的发送一大批数据到显卡上，而不是每个顶点发送一次。
     unsigned int VBO;
     unsigned int VAO;
+    unsigned int EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+    glBindVertexArray(VAO);
+
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 把之前定义的顶点数据复制到缓冲的内存中
 
-
-    glBindVertexArray(VAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // 告诉OpenGL该如何解析顶点数据
     // 第一个参数指定我们要配置的顶点属性 layout(location = 0)
@@ -120,6 +129,10 @@ int main() {
     // 最后一个参数的类型是void*
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0); // 以顶点属性位置值作为参数，启用顶点属性
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindVertexArray(0);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次GLFW是否被要求退出
@@ -138,13 +151,19 @@ int main() {
         // 激活程序对象
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+//        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         // glfwSwapBuffers函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
         // glfwPollEvents函数检查有没有触发什么事件（比如键盘输入、鼠标移动等）
         glfwPollEvents();
     }
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteProgram(shaderProgram);
 
     // 渲染循环结束后我们需要正确释放/删除之前的分配的所有资源
     glfwTerminate();
