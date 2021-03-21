@@ -52,8 +52,7 @@ int main() {
     }
 
     // 动态编译顶点着色器代码
-    unsigned int vertexShader;
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);;
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
     // 捕获顶点着色器动态编译的错误
@@ -82,6 +81,7 @@ int main() {
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+    // check for linking errors
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if(!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
@@ -107,16 +107,18 @@ int main() {
     // 它会在GPU内存（通常被称为显存）中储存大量顶点。
     // 使用这些缓冲对象的好处是我们可以一次性的发送一大批数据到显卡上，而不是每个顶点发送一次。
     unsigned int VBO;
-    unsigned int VAO;
-    unsigned int EBO;
+    unsigned int VAO; // 顶点数组对象，绑定后任何随后的顶点属性调用都会储存在这个 VAO 中
+    unsigned int EBO; // 专门储存索引，OpenGL调用这些顶点的索引来决定该绘制哪个顶点
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-    glBindVertexArray(VAO);
+    glBindVertexArray(VAO); // 绑定VAO
 
+    // 把顶点数组复制到缓冲中供OpenGL使用
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 把之前定义的顶点数据复制到缓冲的内存中
 
+    // 当目标是GL_ELEMENT_ARRAY_BUFFER的时候，VAO 会储存 glBindBuffer 的函数调用
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
@@ -133,6 +135,9 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindVertexArray(0);
+
+    // GL_LINE 用线绘制，GL_FILL 用面绘制
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次GLFW是否被要求退出
@@ -151,8 +156,8 @@ int main() {
         // 激活程序对象
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-//        glDrawArrays(GL_TRIANGLES, 0, 3);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+//        glDrawArrays(GL_TRIANGLES, 0, 3); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // glDrawElements来替换glDrawArrays函数，来指明我们从索引缓冲渲染
 
         // glfwSwapBuffers函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
