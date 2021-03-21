@@ -2,29 +2,14 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
+#include "shader_s.h"
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
-
-// 顶点着色器
-const char *vertexShaderSource ="#version 330 core\n"
-                                "layout (location = 0) in vec3 aPos;\n"
-                                "void main()\n"
-                                "{\n"
-                                "   gl_Position = vec4(aPos, 1.0);\n"
-                                "}\0";
-// 片段着色器
-// Uniform 是一种从 CPU 中的应用向 GPU 中的着色器发送数据的方式，并且它是全局的
-const char *fragmentShaderSource = "#version 330 core\n"
-                                   "out vec4 FragColor;\n"
-                                   "uniform vec4 ourColor;\n"
-                                   "void main()\n"
-                                   "{\n"
-                                   "   FragColor = ourColor;\n"
-                                   "}\n\0";
 
 int main() {
     // 实例化 GLFW 窗口
@@ -53,51 +38,16 @@ int main() {
         return -1;
     }
 
-    // 动态编译顶点着色器代码
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);;
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-    // 捕获顶点着色器动态编译的错误
-    int  success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
+    // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
+    // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
+    Shader ourShader("../shaders/1.3.shader.vs", "../shaders/1.3.shader.fs");
 
-    // fragment shader
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
-    // check for shader compile errors
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // 着色器程序：多个着色器合并之后并最终链接完成的版本
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    // check for linking errors
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    // 把着色器对象链接到程序对象以后，记得删除着色器对象，我们不再需要它们了
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    // 2D 矩形
+    // 2D 三角形
     float vertices[] = {
-            0.5f, -0.5f, 0.0f,  // bottom right
-            -0.5f, -0.5f, 0.0f,  // bottom left
-            0.0f,  0.5f, 0.0f   // top
+            // 位置              // 颜色
+            0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // 右下
+            -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // 左下
+            0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // 顶部
     };
 
     // 顶点缓冲对象
@@ -120,8 +70,12 @@ int main() {
     // 第四个参数我们是否希望数据被标准化 GL_FALSE
     // 第五个参数叫做步长(Stride)，它告诉我们在连续的顶点属性组之间的间隔 3 * sizeof(float)
     // 最后一个参数的类型是void*
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
+    // 位置属性
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0); // 以顶点属性位置值作为参数，启用顶点属性
+    // 颜色属性
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+    glEnableVertexAttribArray(1); // 以顶点属性位置值作为参数，启用顶点属性
 
     // glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -145,14 +99,8 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT); // 状态使用函数
 
         // 激活程序对象
-        glUseProgram(shaderProgram);
-
-        // update shader uniform
-        auto timeValue = (float)glfwGetTime();
-        float greenValue = sin(timeValue) / 2.0f + 0.5f;
-        int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
-        glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
-
+        ourShader.use();
+        glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
 
         // glfwSwapBuffers函数会交换颜色缓冲（知识点：双缓冲技术）
@@ -163,7 +111,6 @@ int main() {
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteProgram(shaderProgram);
 
     // 渲染循环结束后我们需要正确释放/删除之前的分配的所有资源
     glfwTerminate();
