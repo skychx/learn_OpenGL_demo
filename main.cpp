@@ -10,18 +10,20 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // 顶点着色器
-const char *vertexShaderSource = "#version 330 core\n"
-                                 "layout (location = 0) in vec3 aPos;\n"
-                                 "void main()\n"
-                                 "{\n"
-                                 "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-                                 "}\0";
+const char *vertexShaderSource ="#version 330 core\n"
+                                "layout (location = 0) in vec3 aPos;\n"
+                                "void main()\n"
+                                "{\n"
+                                "   gl_Position = vec4(aPos, 1.0);\n"
+                                "}\0";
 // 片段着色器
+// Uniform 是一种从 CPU 中的应用向 GPU 中的着色器发送数据的方式，并且它是全局的
 const char *fragmentShaderSource = "#version 330 core\n"
                                    "out vec4 FragColor;\n"
+                                   "uniform vec4 ourColor;\n"
                                    "void main()\n"
                                    "{\n"
-                                   "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+                                   "   FragColor = ourColor;\n"
                                    "}\n\0";
 
 int main() {
@@ -93,14 +95,9 @@ int main() {
 
     // 2D 矩形
     float vertices[] = {
-            0.5f, 0.5f, 0.0f,   // 右上角
-            0.5f, -0.5f, 0.0f,  // 右下角
-            -0.5f, -0.5f, 0.0f, // 左下角
-            -0.5f, 0.5f, 0.0f   // 左上角
-    };
-    unsigned int indices[] = { // 注意索引从0开始!
-            0, 1, 3, // 第一个三角形
-            1, 2, 3  // 第二个三角形
+            0.5f, -0.5f, 0.0f,  // bottom right
+            -0.5f, -0.5f, 0.0f,  // bottom left
+            0.0f,  0.5f, 0.0f   // top
     };
 
     // 顶点缓冲对象
@@ -108,19 +105,13 @@ int main() {
     // 使用这些缓冲对象的好处是我们可以一次性的发送一大批数据到显卡上，而不是每个顶点发送一次。
     unsigned int VBO;
     unsigned int VAO; // 顶点数组对象，绑定后任何随后的顶点属性调用都会储存在这个 VAO 中
-    unsigned int EBO; // 专门储存索引，OpenGL调用这些顶点的索引来决定该绘制哪个顶点
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
     glBindVertexArray(VAO); // 绑定VAO
 
     // 把顶点数组复制到缓冲中供OpenGL使用
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 把之前定义的顶点数据复制到缓冲的内存中
-
-    // 当目标是GL_ELEMENT_ARRAY_BUFFER的时候，VAO 会储存 glBindBuffer 的函数调用
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // 告诉OpenGL该如何解析顶点数据
     // 第一个参数指定我们要配置的顶点属性 layout(location = 0)
@@ -132,12 +123,12 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0); // 以顶点属性位置值作为参数，启用顶点属性
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glBindVertexArray(0);
+    glBindVertexArray(VAO);
 
     // GL_LINE 用线绘制，GL_FILL 用面绘制
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次GLFW是否被要求退出
@@ -155,9 +146,14 @@ int main() {
 
         // 激活程序对象
         glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
-//        glDrawArrays(GL_TRIANGLES, 0, 3); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // glDrawElements来替换glDrawArrays函数，来指明我们从索引缓冲渲染
+
+        // update shader uniform
+        auto timeValue = (float)glfwGetTime();
+        float greenValue = sin(timeValue) / 2.0f + 0.5f;
+        int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
+        glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+        glDrawArrays(GL_TRIANGLES, 0, 3); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
 
         // glfwSwapBuffers函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
@@ -167,7 +163,6 @@ int main() {
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
     glDeleteProgram(shaderProgram);
 
     // 渲染循环结束后我们需要正确释放/删除之前的分配的所有资源
