@@ -83,6 +83,7 @@ public:
     }
     // ------------------------------------------------------------------------
     void setInt(const std::string &name, int value) const {
+        // 告诉 OpenGL 每个着色器采样器属于哪个纹理单元
         glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
     }
     // ------------------------------------------------------------------------

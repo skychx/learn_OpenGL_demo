@@ -90,7 +90,7 @@ int main() {
     // 第二个参数指定顶点属性的大小：vec3
     // 第三个参数指定数据的类型：GL_FLOAT
     // 第四个参数我们是否希望数据被标准化：GL_FALSE
-    // 第五个参数叫做步长(Stride)，它告诉我们在连续的顶点属性组之间的间隔：3 * sizeof(float)
+    // 第五个参数叫做步长(Stride)，它告诉我们在连续的顶点属性组之间的间隔：3 + 3 + 2 = 8
     // 最后一个参数的类型是void*
     // 位置属性
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)nullptr);
@@ -105,20 +105,25 @@ int main() {
     // glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     unsigned int texture1, texture2;
-    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
+    stbi_set_flip_vertically_on_load(true); // 图片 y 轴 0.0 坐标一般在顶部，这个 API 是用来翻转 y 轴的
+    glGenTextures(1, &texture1); // 输入生成纹理的数量: 1，然后把它们储存在第二个参数的 unsigned int 数组中
+    glBindTexture(GL_TEXTURE_2D, texture1); // 绑定纹理
     // 为当前绑定的纹理对象设置环绕、过滤方式
+    // GL_TEXTURE_WRAP_S/T: 纹理的坐标轴
+    // GL_REPEAT: 重复纹理图像
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // GL_TEXTURE_MIN_FILTER/MAG_FILTER: 放大、缩小操作的时候设置纹理过滤的选项
+    // GL_LINEAR: 线性过滤
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // 加载图片
     int width, height, nrChannels;
     unsigned char *data = stbi_load("../resources/textures/container.jpeg", &width, &height, &nrChannels, 0);
     if (data) {
+        // 生成纹理：纹理目标，mipmap级别，格式，最终纹理的长宽，0（历史遗留），源图的格式和数据类型，真正的图像数据
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
+        glGenerateMipmap(GL_TEXTURE_2D); // 生成 Mipmap（多级渐远纹理）
     } else {
         std::cout << "Failed to load texture" << std::endl;
     }
@@ -146,6 +151,7 @@ int main() {
     stbi_image_free(data);
 
     ourShader.use(); // 不要忘记在设置 uniform 变量之前激活着色器程序！
+    // 通过使用 glUniform1i 设置每个采样器的方式，告诉 OpenGL 每个着色器采样器属于哪个纹理单元
     glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), 0); // 手动设置
     ourShader.setInt("texture2", 1); // 或者使用着色器类设置
 
@@ -167,8 +173,9 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT); // 状态使用函数
 
         // bind Texture
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture1);
+        // OpenGL 至少保证有 16 个纹理单元供你使用，也就是说你可以激活从 GL_TEXTURE0 到 GL_TEXTURE15
+        glActiveTexture(GL_TEXTURE0); // 在绑定纹理之前先激活纹理单元
+        glBindTexture(GL_TEXTURE_2D, texture1); // 绑定这个纹理到当前激活的纹理单元
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
 
