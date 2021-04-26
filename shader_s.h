@@ -47,9 +47,9 @@ public:
         unsigned int vertex, fragment;
 
         // 顶点着色器
-        vertex = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertex, 1, &vShaderCode, NULL);
-        glCompileShader(vertex);
+        vertex = glCreateShader(GL_VERTEX_SHADER); // 创建着色器
+        glShaderSource(vertex, 1, &vShaderCode, NULL); // 把这个着色器源码附加到着色器对象上
+        glCompileShader(vertex); // 编译
         checkCompileErrors(vertex, "VERTEX");
 
         // 片段着色器
@@ -59,10 +59,11 @@ public:
         checkCompileErrors(fragment, "FRAGMENT");
 
         // 着色器程序
-        ID = glCreateProgram();
+        // 着色器程序对象(Shader Program Object)是多个着色器合并之后并最终链接完成的版本
+        ID = glCreateProgram(); // 创建一个程序，并返回新创建程序对象的ID引用
         glAttachShader(ID, vertex);
         glAttachShader(ID, fragment);
-        glLinkProgram(ID);
+        glLinkProgram(ID); // 链接它们
         checkCompileErrors(ID, "PROGRAM");
 
         // 删除着色器，它们已经链接到我们的程序中了，已经不再需要了
