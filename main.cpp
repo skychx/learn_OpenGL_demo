@@ -1,6 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -42,7 +45,7 @@ int main() {
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader ourShader("../shaders/1.4.shader.vert", "../shaders/1.4.shader.frag");
+    Shader ourShader("../shaders/1.5.transShader.vert", "../shaders/1.5.transShader.frag");
 
     // 顶点输入
     // 3 - 0
@@ -179,8 +182,23 @@ int main() {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
 
+        // 变换
+        glm::mat4 trans = glm::mat4(1.0f);
+        // 逆时针旋转 90 度
+        // trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+        // 缩放 0.5 倍
+        // trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.5));
+
+        // 先旋转再右移
+        trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
         // 激活程序对象
         ourShader.use();
+
+        unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
+
         glBindVertexArray(VAO);
         // glDrawArrays(GL_TRIANGLES, 0, 3); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
