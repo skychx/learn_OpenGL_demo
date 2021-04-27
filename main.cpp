@@ -98,6 +98,20 @@ int main() {
             -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
 
+    // 十个正方体做不同方向的偏移
+    glm::vec3 cubePositions[] = {
+            glm::vec3( 0.0f,  0.0f,  0.0f),
+            glm::vec3( 2.0f,  5.0f, -15.0f),
+            glm::vec3(-1.5f, -2.2f, -2.5f),
+            glm::vec3(-3.8f, -2.0f, -12.3f),
+            glm::vec3( 2.4f, -0.4f, -3.5f),
+            glm::vec3(-1.7f,  3.0f, -7.5f),
+            glm::vec3( 1.3f, -2.0f, -2.5f),
+            glm::vec3( 1.5f,  2.0f, -2.5f),
+            glm::vec3( 1.5f,  0.2f, -1.5f),
+            glm::vec3(-1.3f,  1.0f, -1.5f)
+    };
+
     // 顶点缓冲对象 Vertex Buffer Objects（VBO）
     // 它会在 GPU 内存（通常被称为显存）中储存大量顶点。
     // 使用这些缓冲对象的好处是我们可以一次性的发送一大批数据到显卡上，而不是每个顶点发送一次。
@@ -182,7 +196,7 @@ int main() {
 
     ourShader.use(); // 不要忘记在设置 uniform 变量之前激活着色器程序！
     // 通过使用 glUniform1i 设置每个采样器的方式，告诉 OpenGL 每个着色器采样器属于哪个纹理单元
-    glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), 0); // 手动设置
+    ourShader.setInt("texture1", 0);
     ourShader.setInt("texture2", 1); // 或者使用着色器类设置
 
     // GL_LINE 用线绘制，GL_FILL 用面绘制
@@ -213,22 +227,28 @@ int main() {
         ourShader.use();
 
         // 变换
-        glm::mat4 model         = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
         glm::mat4 view          = glm::mat4(1.0f);
         glm::mat4 projection    = glm::mat4(1.0f);
-        // 绕 x 轴旋转 55 度
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
         // 反方向移动
         view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
         // 投影矩阵
         projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-        ourShader.setMat4("model", model);
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
 
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36); // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
+        for (unsigned int i = 0; i < 10; i++) {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[i]);
+            float angle = glfwGetTime() * 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            ourShader.setMat4("model", model);
+
+            // 使用当前激活的着色器，之前定义的顶点属性配置，和VBO的顶点数据（通过VAO间接绑定）来绘制图元
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
         // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
         // glfwSwapBuffers 函数会交换颜色缓冲（知识点：双缓冲技术）
