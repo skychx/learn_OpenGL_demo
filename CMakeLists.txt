@@ -34,7 +34,7 @@ SET_TARGET_PROPERTIES(glfw PROPERTIES IMPORTED_LOCATION "${GLFW_HOME}/lib/libglf
 add_library(glad SHARED "${GLAD_HOME}/src/glad.c")
 
 # 创建可执行文件
-add_executable(learn_OpenGL main.cpp shader_s.h)
+add_executable(learn_OpenGL main.cpp shader_s.h camera.h)
 
 # # 链接 GLFW GLAD OpenGL
 target_link_libraries(learn_OpenGL glfw glad "-framework OpenGL")

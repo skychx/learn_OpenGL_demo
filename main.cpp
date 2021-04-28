@@ -8,13 +8,26 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "shader_s.h"
+#include "camera.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+
+// camera
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+// 默认鼠标初始位置为窗口中点
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+bool firstMouse = true;
+
+float deltaTime = 0.0f;	// 当前帧与上一帧的时间差
+float lastFrame = 0.0f; // 上一帧的时间
 
 int main() {
     // 实例化 GLFW 窗口
@@ -36,6 +49,10 @@ int main() {
     glfwMakeContextCurrent(window);
     // 注册这个函数，告诉 GLFW 我们希望每当窗口调整大小的时候调用这个函数
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    // 鼠标事件
+    glfwSetCursorPosCallback(window, mouse_callback);
+    // 鼠标滚轮事件
+    glfwSetScrollCallback(window, scroll_callback);
 
     // GLAD 是用来管理 OpenGL 的函数指针的，所以在调用任何 OpenGL 的函数之前我们需要初始化 GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -205,6 +222,14 @@ int main() {
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次 GLFW 是否被要求退出
     while(!glfwWindowShouldClose(window)) {
+        // per-frame time logic
+        // -----------------
+
+        // 每次循环时更新时间
+        auto currentFrame = (float)glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         // input
         // ----
         // 每次循环的时候监听键盘事件
@@ -229,10 +254,10 @@ int main() {
         // 变换
         glm::mat4 view          = glm::mat4(1.0f);
         glm::mat4 projection    = glm::mat4(1.0f);
-        // 反方向移动
-        view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+        // view 用摄像机
+        view = camera.GetViewMatrix();
         // 投影矩阵
-        projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
@@ -242,7 +267,7 @@ int main() {
             // calculate the model matrix for each object and pass it to shader before drawing
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
-            float angle = glfwGetTime() * 20.0f * i;
+            float angle = (float)glfwGetTime() * 20.0f * (float)(i + 1);
             model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
             ourShader.setMat4("model", model);
 
@@ -267,12 +292,45 @@ int main() {
 
 //检查用户是否按下了返回键(Esc)
 void processInput(GLFWwindow *window) {
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
+    }
+
+    // WASD 控制摄像机方向
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.ProcessKeyboard(BACKWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.ProcessKeyboard(LEFT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
 // 每次窗口大小被调整的时候被调用
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // 前两个参数控制窗口左下角的位置。第三个和第四个参数控制渲染窗口的宽度和高度
     glViewport(0, 0, width, height);
+}
+
+// 鼠标回调
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+// 滚轮事件回调
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    camera.ProcessMouseScroll(yoffset);
 }
