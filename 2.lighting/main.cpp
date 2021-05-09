@@ -223,6 +223,7 @@ int main() {
 
         // 位置
 //        lightingShader.setVec3("light.position", lightPos);
+        // 将方向定义为从光源出发的方向
         lightingShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
         lightingShader.setVec3("viewPos", camera.Position);
 
