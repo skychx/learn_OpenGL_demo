@@ -311,7 +311,7 @@ int main() {
             // calculate the model matrix for each object and pass it to shader before drawing
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
-            float angle = 20.0f * i;
+            auto angle = 20.0f * (float)i;
             model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
             lightingShader.setMat4("model", model);
 
@@ -324,9 +324,9 @@ int main() {
 
         // 绘制灯立方体对象
         glBindVertexArray(lightCubeVAO);
-        for (unsigned int i = 0; i < 4; i++) {
+        for (auto & pointLightPosition : pointLightPositions) {
             model = glm::mat4(1.0f);
-            model = glm::translate(model, pointLightPositions[i]);
+            model = glm::translate(model, pointLightPosition);
             // 把灯位移到 lightPos，然后将它缩小一点，让它不那么明显
             model = glm::scale(model, glm::vec3(0.2f));
             lightCubeShader.setMat4("model", model);
