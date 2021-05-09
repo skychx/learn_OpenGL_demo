@@ -71,8 +71,8 @@ int main() {
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader lightingShader("../shaders/2.2.basic_lighting.vert", "../shaders/2.2.basic_lighting.frag");
     Shader lightCubeShader("../shaders/2.1.light_cube.vert", "../shaders/2.1.light_cube.frag");
+    Shader lightingShader("../shaders/2.3.materials.vert", "../shaders/2.3.materials.frag");
 
     // 顶点输入
     // 3 - 0
@@ -193,10 +193,27 @@ int main() {
         lightPos.y = sin(glfwGetTime() / 2.0f) * 1.0f;
 
         lightingShader.use();
-        lightingShader.setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-        lightingShader.setVec3("lightColor",  1.0f, 1.0f, 1.0f);
-        lightingShader.setVec3("lightPos",  lightPos);
+
+        // 位置
+        lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("viewPos", camera.Position);
+
+        // 光照
+        glm::vec3 lightColor;
+        lightColor.x = sin(glfwGetTime() * 2.0f);
+        lightColor.y = sin(glfwGetTime() * 0.7f);
+        lightColor.z = sin(glfwGetTime() * 1.3f);
+        glm::vec3 diffuseColor = lightColor   * glm::vec3(0.5f); // decrease the influence
+        glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f); // low influence
+        lightingShader.setVec3("light.ambient", ambientColor);
+        lightingShader.setVec3("light.diffuse", diffuseColor);
+        lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+
+        // 材质
+        lightingShader.setVec3("material.ambient",  1.0f, 0.5f, 0.31f);
+        lightingShader.setVec3("material.diffuse",  1.0f, 0.5f, 0.31f);
+        lightingShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
+        lightingShader.setFloat("material.shininess", 32.0f);
 
         // 变换
         glm::mat4 view          = glm::mat4(1.0f);
