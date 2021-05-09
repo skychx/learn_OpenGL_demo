@@ -3,6 +3,7 @@
 struct Material {
     sampler2D diffuse;
     sampler2D specular;
+    sampler2D emission;
     float shininess;
 };
 
@@ -43,6 +44,9 @@ void main()
     // 取样对应的颜色值并将它乘以光源的镜面强度。一个像素越「白」，乘积就会越大，物体的镜面光分量就会越亮
     vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
 
-    vec3 result = ambient + diffuse + specular;
+    // emission
+    vec3 emission = texture(material.emission, TexCoords).rgb;
+
+    vec3 result = ambient + diffuse + specular + emission;
     FragColor = vec4(result, 1.0);
 }

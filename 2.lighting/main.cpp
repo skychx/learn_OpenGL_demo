@@ -174,10 +174,12 @@ int main() {
     // 贴图
     unsigned int diffuseMap = loadTexture("../resources/textures/container2.png");
     unsigned int specularMap = loadTexture("../resources/textures/container2_specular.png");
+    unsigned int emissionMap = loadTexture("../resources/textures/matrix.jpeg");
 
     lightingShader.use();
     lightingShader.setInt("material.diffuse", 0);
     lightingShader.setInt("material.specular", 1);
+    lightingShader.setInt("material.emission", 2);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次 GLFW 是否被要求退出
@@ -234,11 +236,16 @@ int main() {
         glm::mat4 model = glm::mat4(1.0f);
         lightingShader.setMat4("model", model);
 
+        // 纹理贴图绑定
+        // 漫反射
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
+        // 镜面光 mask
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specularMap);
+        // 放射光
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, emissionMap);
 
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
