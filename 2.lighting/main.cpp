@@ -72,8 +72,8 @@ int main() {
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader lightCubeShader("../shaders/2.1.light_cube.vert", "../shaders/2.1.light_cube.frag");
-    Shader lightingShader("../shaders/2.4.lighting_maps.vert", "../shaders/2.4.lighting_maps.frag");
+    // Shader lightCubeShader("../shaders/2.1.light_cube.vert", "../shaders/2.1.light_cube.frag");
+    Shader lightingShader("../shaders/2.5.light_casters_directional.vert", "../shaders/2.5.light_casters_directional.frag");
 
     // 顶点输入
     // 3 - 0
@@ -122,6 +122,20 @@ int main() {
             0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
             -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
             -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
+    };
+
+    // positions all containers
+    glm::vec3 cubePositions[] = {
+            glm::vec3( 0.0f,  0.0f,  0.0f),
+            glm::vec3( 2.0f,  5.0f, -15.0f),
+            glm::vec3(-1.5f, -2.2f, -2.5f),
+            glm::vec3(-3.8f, -2.0f, -12.3f),
+            glm::vec3( 2.4f, -0.4f, -3.5f),
+            glm::vec3(-1.7f,  3.0f, -7.5f),
+            glm::vec3( 1.3f, -2.0f, -2.5f),
+            glm::vec3( 1.5f,  2.0f, -2.5f),
+            glm::vec3( 1.5f,  0.2f, -1.5f),
+            glm::vec3(-1.3f,  1.0f, -1.5f)
     };
 
     // 顶点缓冲对象 Vertex Buffer Objects（VBO）
@@ -174,12 +188,10 @@ int main() {
     // 贴图
     unsigned int diffuseMap = loadTexture("../resources/textures/container2.png");
     unsigned int specularMap = loadTexture("../resources/textures/container2_specular.png");
-    unsigned int emissionMap = loadTexture("../resources/textures/matrix.jpeg");
 
     lightingShader.use();
     lightingShader.setInt("material.diffuse", 0);
     lightingShader.setInt("material.specular", 1);
-    lightingShader.setInt("material.emission", 2);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次 GLFW 是否被要求退出
@@ -210,7 +222,8 @@ int main() {
         lightingShader.use();
 
         // 位置
-        lightingShader.setVec3("light.position", lightPos);
+//        lightingShader.setVec3("light.position", lightPos);
+        lightingShader.setVec3("light.direction", -0.2f, -1.0f, -0.3f);
         lightingShader.setVec3("viewPos", camera.Position);
 
         // 光照
@@ -243,25 +256,35 @@ int main() {
         // 镜面光 mask
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specularMap);
-        // 放射光
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, emissionMap);
+
+//        glBindVertexArray(cubeVAO);
+//        glDrawArrays(GL_TRIANGLES, 0, 36);
 
         glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            lightingShader.setMat4("model", model);
 
-        lightCubeShader.use();
-        lightCubeShader.setMat4("projection", projection);
-        lightCubeShader.setMat4("view", view);
-        // 把灯位移到 lightPos，然后将它缩小一点，让它不那么明显
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        lightCubeShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
-        // 绘制灯立方体对象
-        glBindVertexArray(lightCubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+//        lightCubeShader.use();
+//        lightCubeShader.setMat4("projection", projection);
+//        lightCubeShader.setMat4("view", view);
+//        // 把灯位移到 lightPos，然后将它缩小一点，让它不那么明显
+//        model = glm::mat4(1.0f);
+//        model = glm::translate(model, lightPos);
+//        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+//        lightCubeShader.setMat4("model", model);
+//
+//        // 绘制灯立方体对象
+//        glBindVertexArray(lightCubeVAO);
+//        glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
         // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
