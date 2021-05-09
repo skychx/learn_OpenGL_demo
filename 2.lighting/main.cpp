@@ -73,7 +73,7 @@ int main() {
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
      Shader lightCubeShader("../shaders/2.1.light_cube.vert", "../shaders/2.1.light_cube.frag");
-    Shader lightingShader("../shaders/2.5.light_casters_point.vert", "../shaders/2.5.light_casters_point.frag");
+    Shader lightingShader("../shaders/2.5.light_casters_spot_soft.vert", "../shaders/2.5.light_casters_spot_soft.frag");
 
     // 顶点输入
     // 3 - 0
@@ -222,7 +222,6 @@ int main() {
         lightingShader.use();
 
         // 位置
-//        lightingShader.setVec3("light.position", lightPos);
         // 将方向定义为从光源出发的方向
         lightingShader.setVec3("light.position", lightPos);
         lightingShader.setVec3("viewPos", camera.Position);
@@ -231,9 +230,14 @@ int main() {
         lightingShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
         lightingShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
         lightingShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+
         lightingShader.setFloat("light.constant", 1.0f); // 衰减函数—— 常量
         lightingShader.setFloat("light.linear", 0.09f); // 衰减函数—— 一次项
         lightingShader.setFloat("light.quadratic", 0.032f); // 衰减函数—— 二次项
+
+        lightingShader.setVec3("light.direction", camera.Front); // 聚光正向方向
+        lightingShader.setFloat("light.cutOff", glm::cos(glm::radians(12.5f))); // 内光角
+        lightingShader.setFloat("light.outerCutOff", glm::cos(glm::radians(12.5f))); // 外光角
 
         // 材质
         lightingShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
