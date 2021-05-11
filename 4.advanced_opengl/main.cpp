@@ -70,10 +70,16 @@ int main() {
     // GL_ALWAYS 永远通过深度测试（就是不启用 z-buffer 的效果）
     // GL_LESS （默认的 z-buffer 的效果）
     glDepthFunc(GL_LESS);
+    // 开启模板测试
+    glEnable(GL_STENCIL_TEST);
+    // 只要一个片段的模板值不等于(GL_NOTEQUAL)参考值 1，片段将会通过测试并被绘制，否则会被丢弃
+    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader shader("../shaders/4.1.depth_testing.vert", "../shaders/4.1.depth_testing.frag");
+    Shader shader("../shaders/4.2.stencil_testing.vert", "../shaders/4.2.stencil_testing.frag");
+    Shader shaderSingleColor("../shaders/4.2.stencil_testing.vert", "../shaders/4.2.stencil_single_color.frag");
 
     float cubeVertices[] = {
             // positions          // texture Coords
@@ -186,14 +192,36 @@ int main() {
         // -----
         // 当调用 glClear 函数，清除颜色缓冲之后，整个颜色缓冲都会被填充为 glClearColor 里所设置的颜色
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 状态设置函数
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // 清除颜色缓冲和深度缓冲
+        // 清除颜色缓冲、深度缓冲、模板缓冲
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-        shader.use();
+        // set uniforms
+        shaderSingleColor.use();
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        shaderSingleColor.setMat4("view", view);
+        shaderSingleColor.setMat4("projection", projection);
+
+        shader.use();
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
+
+        // floor
+        // 地板不参与深度测试，所以先绘制，并把模板缓冲设为 0
+        glStencilMask(0x00);
+
+        glBindVertexArray(planeVAO);
+        glBindTexture(GL_TEXTURE_2D, floorTexture);
+        shader.setMat4("model", glm::mat4(1.0f));
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
+        // 1st. render pass, draw objects as normal, writing to the stencil buffer
+        // 第一遍渲染，正常绘制箱子，并且把箱子所占位置的模板值改为 1
+        // --------------------------------------------------------------------
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF); // 启用模板缓冲写入
         // cubes
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
@@ -205,12 +233,35 @@ int main() {
         model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
         shader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        // floor
-        glBindVertexArray(planeVAO);
-        glBindTexture(GL_TEXTURE_2D, floorTexture);
-        shader.setMat4("model", glm::mat4(1.0f));
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // 第二次渲染，渲染边框
+        // --------------------------------------------------------------------
+        // 我们将模板函数设置为GL_NOTEQUAL，它会保证我们只绘制箱子上模板值不为1的部分，
+        // 即只绘制箱子在之前绘制的箱子之外的部分
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00); // 禁止模板缓冲的写入
+        glDisable(GL_DEPTH_TEST); // 禁用了深度测试，让放大的箱子，即边框，不会被地板所覆盖
+        shaderSingleColor.use();
+        float scale = 1.1; // 要画外边框，就要放大 1.1 倍
+        // cubes
+        glBindVertexArray(cubeVAO);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -1.0f));
+        model = glm::scale(model, glm::vec3(scale, scale, scale));
+        shaderSingleColor.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(scale, scale, scale));
+        shaderSingleColor.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+
+        // 完成之后重新启用深度缓冲、模板缓冲
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glEnable(GL_DEPTH_TEST);
 
         // glfwSwapBuffers 函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
