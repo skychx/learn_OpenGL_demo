@@ -67,19 +67,10 @@ int main() {
 
     // 开启深度测试（≈）
     glEnable(GL_DEPTH_TEST);
-    // GL_ALWAYS 永远通过深度测试（就是不启用 z-buffer 的效果）
-    // GL_LESS （默认的 z-buffer 的效果）
-    glDepthFunc(GL_LESS);
-    // 开启模板测试
-    glEnable(GL_STENCIL_TEST);
-    // 只要一个片段的模板值不等于(GL_NOTEQUAL)参考值 1，片段将会通过测试并被绘制，否则会被丢弃
-    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader shader("../shaders/4.2.stencil_testing.vert", "../shaders/4.2.stencil_testing.frag");
-    Shader shaderSingleColor("../shaders/4.2.stencil_testing.vert", "../shaders/4.2.stencil_single_color.frag");
+    Shader shader("../shaders/4.3.blending_discard.vert", "../shaders/4.3.blending_discard.frag");
 
     float cubeVertices[] = {
             // positions          // texture Coords
@@ -135,6 +126,16 @@ int main() {
             -5.0f, -0.5f, -5.0f,  0.0f, 2.0f,
             5.0f, -0.5f, -5.0f,  2.0f, 2.0f
     };
+    float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
 
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
@@ -162,10 +163,34 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
+    // transparent VAO
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+
     // load textures
     // -------------
     unsigned int cubeTexture  = loadTexture("../resources/textures/container2.png");
     unsigned int floorTexture = loadTexture("../resources/textures/metal.png");
+    unsigned int transparentTexture = loadTexture("../resources/textures/grass.png");
+
+    // transparent vegetation locations
+    // --------------------------------
+    vector<glm::vec3> vegetation {
+        glm::vec3(-1.5f, 0.0f, -0.48f),
+        glm::vec3( 1.5f, 0.0f, 0.51f),
+        glm::vec3( 0.0f, 0.0f, 0.7f),
+        glm::vec3(-0.3f, 0.0f, -2.3f),
+        glm::vec3 (0.5f, 0.0f, -0.6f)
+    };
 
     // shader configuration
     // --------------------
@@ -193,35 +218,15 @@ int main() {
         // 当调用 glClear 函数，清除颜色缓冲之后，整个颜色缓冲都会被填充为 glClearColor 里所设置的颜色
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 状态设置函数
         // 清除颜色缓冲、深度缓冲、模板缓冲
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        // set uniforms
-        shaderSingleColor.use();
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        shaderSingleColor.setMat4("view", view);
-        shaderSingleColor.setMat4("projection", projection);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader.use();
-        shader.setMat4("view", view);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 model = glm::mat4(1.0f);
         shader.setMat4("projection", projection);
+        shader.setMat4("view", view);
 
-        // floor
-        // 地板不参与深度测试，所以先绘制，并把模板缓冲设为 0
-        glStencilMask(0x00);
-
-        glBindVertexArray(planeVAO);
-        glBindTexture(GL_TEXTURE_2D, floorTexture);
-        shader.setMat4("model", glm::mat4(1.0f));
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glBindVertexArray(0);
-
-        // 1st. render pass, draw objects as normal, writing to the stencil buffer
-        // 第一遍渲染，正常绘制箱子，并且把箱子所占位置的模板值改为 1
-        // --------------------------------------------------------------------
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF); // 启用模板缓冲写入
         // cubes
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
@@ -233,35 +238,21 @@ int main() {
         model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
         shader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // 第二次渲染，渲染边框
-        // --------------------------------------------------------------------
-        // 我们将模板函数设置为GL_NOTEQUAL，它会保证我们只绘制箱子上模板值不为1的部分，
-        // 即只绘制箱子在之前绘制的箱子之外的部分
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilMask(0x00); // 禁止模板缓冲的写入
-        glDisable(GL_DEPTH_TEST); // 禁用了深度测试，让放大的箱子，即边框，不会被地板所覆盖
-        shaderSingleColor.use();
-        float scale = 1.1; // 要画外边框，就要放大 1.1 倍
-        // cubes
-        glBindVertexArray(cubeVAO);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        // floor
+        glBindVertexArray(planeVAO);
+        glBindTexture(GL_TEXTURE_2D, floorTexture);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -1.0f));
-        model = glm::scale(model, glm::vec3(scale, scale, scale));
-        shaderSingleColor.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(scale, scale, scale));
-        shaderSingleColor.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-
-        // 完成之后重新启用深度缓冲、模板缓冲
-        glStencilMask(0xFF);
-        glStencilFunc(GL_ALWAYS, 0, 0xFF);
-        glEnable(GL_DEPTH_TEST);
+        shader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // vegetation
+        glBindVertexArray(transparentVAO);
+        glBindTexture(GL_TEXTURE_2D, transparentTexture);
+        for (auto & i : vegetation) {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, i);
+            shader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
 
         // glfwSwapBuffers 函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
@@ -330,8 +321,7 @@ unsigned int loadTexture(char const *path) {
 
     int width, height, nrComponents;
     unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
-    if (data)
-    {
+    if (data) {
         GLenum format;
         if (nrComponents == 1)
             format = GL_RED;
@@ -341,18 +331,21 @@ unsigned int loadTexture(char const *path) {
             format = GL_RGBA;
 
         glBindTexture(GL_TEXTURE_2D, textureID);
+        // 在纹理生成过程中告诉 OpenGL，我们的纹理现在使用 alpha 通道了
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // 当采样纹理的边缘的时候，OpenGL会对边缘的值和纹理下一个重复的值进行插值（因为我们将它的环绕方式设置为了GL_REPEAT。
+        // 这通常是没问题的，但是由于我们使用了透明值，纹理图像的顶部将会与底部边缘的纯色值进行插值。
+        // 这样的结果是一个半透明的有色边框，你可能会看见它环绕着你的纹理四边形。
+        // 要想避免这个，每当你alpha纹理的时候，请将纹理的环绕方式设置为GL_CLAMP_TO_EDGE
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         stbi_image_free(data);
-    }
-    else
-    {
+    } else {
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
