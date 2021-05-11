@@ -75,53 +75,59 @@ int main() {
     // GL_ONE_MINUS_SRC_ALPHA：1−alpha 作为目标因子
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // 启用面剔除
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK); // 只剔除背向面
+    glFrontFace(GL_CW); // 认为顺时针顺序为正向面
+
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader shader("../shaders/4.3.blending_sorted.vert", "../shaders/4.3.blending_sorted.frag");
+    Shader shader("../shaders/4.4.face_culling.vert", "../shaders/4.4.face_culling.frag");
 
     float cubeVertices[] = {
             // positions          // texture Coords
-            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-            0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-            0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-            0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-            0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-            -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-            0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-            0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-            0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-            0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+            // back face
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // bottom-left
+            0.5f, -0.5f, -0.5f,  1.0f, 0.0f, // bottom-right
+            0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // top-right
+            0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // top-right
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // top-left
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // bottom-left
+            // front face
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // bottom-left
+            0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // top-right
+            0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // bottom-right
+            0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // top-right
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // bottom-left
+            -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, // top-left
+            // left face
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // top-right
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // bottom-left
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // top-left
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // bottom-left
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // top-right
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // bottom-right
+            // right face
+            0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // top-left
+            0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // top-right
+            0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // bottom-right
+            0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // bottom-right
+            0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // bottom-left
+            0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // top-left
+            // bottom face
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // top-right
+            0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // bottom-left
+            0.5f, -0.5f, -0.5f,  1.0f, 1.0f, // top-left
+            0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // bottom-left
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // top-right
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // bottom-right
+            // top face
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // top-left
+            0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // top-right
+            0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // bottom-right
+            0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // bottom-right
+            -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, // bottom-left
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f  // top-left
     };
     float planeVertices[] = {
             // positions          // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
@@ -244,6 +250,8 @@ int main() {
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
 
+        // 立方体开启面剔除
+        glEnable(GL_CULL_FACE);
         // cubes
         glBindVertexArray(cubeVAO);
         glActiveTexture(GL_TEXTURE0);
@@ -255,6 +263,9 @@ int main() {
         model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
         shader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // 地板/玻璃不开启面剔除
+        glDisable(GL_CULL_FACE);
         // floor
         glBindVertexArray(planeVAO);
         glBindTexture(GL_TEXTURE_2D, floorTexture);
