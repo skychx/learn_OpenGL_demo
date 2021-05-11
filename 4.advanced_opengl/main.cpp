@@ -67,10 +67,17 @@ int main() {
 
     // 开启深度测试（≈）
     glEnable(GL_DEPTH_TEST);
+    // 启用混合
+    glEnable(GL_BLEND);
+    // 混合函数（源因子，目标因子）
+    // result = 源颜色向量 * 源因子值 + 目标颜色向量 * 目标因子值
+    // GL_SRC_ALPHA：源颜色向量的 alpha 作为源因子
+    // GL_ONE_MINUS_SRC_ALPHA：1−alpha 作为目标因子
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader shader("../shaders/4.3.blending_discard.vert", "../shaders/4.3.blending_discard.frag");
+    Shader shader("../shaders/4.3.blending_sorted.vert", "../shaders/4.3.blending_sorted.frag");
 
     float cubeVertices[] = {
             // positions          // texture Coords
@@ -180,11 +187,11 @@ int main() {
     // -------------
     unsigned int cubeTexture  = loadTexture("../resources/textures/container2.png");
     unsigned int floorTexture = loadTexture("../resources/textures/metal.png");
-    unsigned int transparentTexture = loadTexture("../resources/textures/grass.png");
+    unsigned int transparentTexture = loadTexture("../resources/textures/window.png");
 
     // transparent vegetation locations
     // --------------------------------
-    vector<glm::vec3> vegetation {
+    vector<glm::vec3> windows {
         glm::vec3(-1.5f, 0.0f, -0.48f),
         glm::vec3( 1.5f, 0.0f, 0.51f),
         glm::vec3( 0.0f, 0.0f, 0.7f),
@@ -212,6 +219,16 @@ int main() {
         // ----
         // 每次循环的时候监听键盘事件
         processInput(window);
+
+        // sort the transparent windows before rendering
+        // ---------------------------------------------
+        std::map<float, glm::vec3> sorted;
+        for (unsigned int i = 0; i < windows.size(); i++) {
+            // 排序透明物体的一种方法是，从观察者视角获取物体的距离
+            float distance = glm::length(camera.Position - windows[i]);
+            // 结果就是一个排序后的容器对象，它根据 distance 键值从低到高储存了每个窗户的位置
+            sorted[distance] = windows[i];
+        }
 
         // render
         // -----
@@ -244,12 +261,13 @@ int main() {
         model = glm::mat4(1.0f);
         shader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 6);
-        // vegetation
+        // windows
         glBindVertexArray(transparentVAO);
         glBindTexture(GL_TEXTURE_2D, transparentTexture);
-        for (auto & i : vegetation) {
+        // 渲染的时候，我们将以逆序（从远到近）从 map 中获取值，之后以正确的顺序绘制对应的窗户：
+        for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
             model = glm::mat4(1.0f);
-            model = glm::translate(model, i);
+            model = glm::translate(model, it->second);
             shader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
