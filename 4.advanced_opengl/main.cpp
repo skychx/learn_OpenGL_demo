@@ -82,7 +82,8 @@ int main() {
 
     // 在 Clion 中，cpp 源文件经编译后生成可执行文件，
     // 放在 cmake-build-debug 目录下，也就是最终的执行目录，所以文件相对路径应该是 ../
-    Shader shader("../shaders/4.4.face_culling.vert", "../shaders/4.4.face_culling.frag");
+    Shader shader("../shaders/4.5.framebuffers.vert", "../shaders/4.5.framebuffers.frag");
+    Shader screenShader("../shaders/4.5.framebuffers_screen.vert", "../shaders/4.5.framebuffers_screen.frag");
 
     float cubeVertices[] = {
             // positions          // texture Coords
@@ -149,6 +150,16 @@ int main() {
             1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
             1.0f,  0.5f,  0.0f,  1.0f,  0.0f
     };
+    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
+            // positions   // texCoords
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            1.0f, -1.0f,  1.0f, 0.0f,
+            1.0f,  1.0f,  1.0f, 1.0f
+    };
 
     // cube VAO
     unsigned int cubeVAO, cubeVBO;
@@ -189,6 +200,18 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
+    // screen quad VAO
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
     // load textures
     // -------------
     unsigned int cubeTexture  = loadTexture("../resources/textures/container2.png");
@@ -209,6 +232,45 @@ int main() {
     // --------------------
     shader.use();
     shader.setInt("texture1", 0);
+
+    screenShader.use();
+    screenShader.setInt("screenTexture", 0);
+
+    // framebuffer configuration
+    // -------------------------
+    unsigned int framebuffer;
+    glGenFramebuffers(1, &framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+    // 帧缓冲纹理附件
+    unsigned int textureColorbuffer;
+    glGenTextures(1, &textureColorbuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); // 纹理只分配了内存，但没有填充
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                          // 帧缓冲目标     // 附件类型            // 纹理类型     // 纹理本身          // 多级渐远纹理的级别
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0); // 附加到帧缓冲上
+
+    // 渲染缓冲对象
+    // 它会将数据储存为 OpenGL 原生的渲染格式，它是为离屏渲染到帧缓冲优化过的
+    // 由于渲染缓冲对象通常都是只写的，它们会经常用于深度和模板附件
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT); // use a single renderbuffer object for both a depth AND stencil buffer.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo); // now actually attach it
+
+    // 一个完整的帧缓冲需要满足以下的条件
+    // 1.附加至少一个缓冲（颜色、深度或模板缓冲）
+    // 2.至少有一个颜色附件(Attachment)
+    // 3.所有的附件都必须是完整的（保留了内存）
+    // 4.每个缓冲都应该有相同的样本数
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+
+    // 把我们的帧缓冲绑定到 0，激活默认帧缓冲（也就是上屏）
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // render loop
     // glfwWindowShouldClose 函数在我们每次循环的开始前检查一次 GLFW 是否被要求退出
@@ -238,6 +300,9 @@ int main() {
 
         // render
         // -----
+        // 第一处理阶段
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glEnable(GL_DEPTH_TEST);
         // 当调用 glClear 函数，清除颜色缓冲之后，整个颜色缓冲都会被填充为 glClearColor 里所设置的颜色
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // 状态设置函数
         // 清除颜色缓冲、深度缓冲、模板缓冲
@@ -283,6 +348,17 @@ int main() {
             glDrawArrays(GL_TRIANGLES, 0, 6);
         }
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_DEPTH_TEST); // disable depth test so screen-space quad isn't discarded due to depth test.
+        // clear all relevant buffers
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessary actually, since we won't be able to see behind the quad anyways)
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        screenShader.use();
+        glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);	// use the color attachment texture as the texture of the quad plane
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
         // glfwSwapBuffers 函数会交换颜色缓冲（知识点：双缓冲技术）
         glfwSwapBuffers(window);
         // glfwPollEvents 函数检查有没有触发什么事件（比如键盘输入、鼠标移动等）
@@ -291,8 +367,10 @@ int main() {
 
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &planeVAO);
+    glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &planeVBO);
+    glDeleteBuffers(1, &quadVBO);
 
     // 渲染循环结束后我们需要正确释放/删除之前的分配的所有资源
     glfwTerminate();
