@@ -76,13 +76,18 @@ int main()
     // build and compile shaders
     // -------------------------
     Shader shader(
-            "../shaders/4.9.geometry_shader_exploding.vert",
-            "../shaders/4.9.geometry_shader_exploding.frag",
-            "../shaders/4.9.geometry_shader_exploding.geom"
+            "../shaders/4.9.normal_default.vert",
+            "../shaders/4.9.normal_default.frag"
             );
+    Shader normalShader(
+            "../shaders/4.9.normal_visualization.vert",
+            "../shaders/4.9.normal_visualization.frag",
+            "../shaders/4.9.normal_visualization.geom"
+    );
 
     // load models
     // -----------
+    stbi_set_flip_vertically_on_load(true);
     Model nanosuit("../resources/nanosuit/nanosuit.obj");
 
     // render loop
@@ -118,6 +123,14 @@ int main()
 
         // draw model
         nanosuit.Draw(shader);
+
+        // then draw model with normal visualizing geometry shader
+        normalShader.use();
+        normalShader.setMat4("projection", projection);
+        normalShader.setMat4("view", view);
+        normalShader.setMat4("model", model);
+
+        nanosuit.Draw(normalShader);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
