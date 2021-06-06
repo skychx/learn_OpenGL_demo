@@ -16,14 +16,50 @@ uniform sampler2D depthMap;
 uniform float heightScale;
 
 // 普通视差贴图
+//vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) {
+//    float height =  texture(depthMap, texCoords).r; // 获取当前 fragment 的高度
+//    // x 和 y 元素在切线空间中，viewDir 向量除以它的 z 元素，用 fragment 的高度对它进行缩放
+//    vec2 p = viewDir.xy / viewDir.z * (height * heightScale);
+//    return texCoords - p;
+//}
+
+// 陡峭视差映射：通过采样的数量提高精确度
 vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) {
-    float height =  texture(depthMap, texCoords).r; // 获取当前 fragment 的高度
-    // x 和 y 元素在切线空间中，viewDir 向量除以它的 z 元素，用 fragment 的高度对它进行缩放
-    vec2 p = viewDir.xy / viewDir.z * (height * heightScale);
-    return texCoords - p;
+    // number of depth layers
+    // 定义层的数量：垂直看表面时使用更少的样本，以一定角度看时增加样本数量
+    const float minLayers = 8;
+    const float maxLayers = 32;
+    float numLayers = mix(maxLayers, minLayers, abs(dot(vec3(0.0, 0.0, 1.0), viewDir)));
+
+    // calculate the size of each layer
+    // 计算每一层的深度
+    float layerDepth = 1.0 / numLayers;
+
+    // depth of current layer
+    float currentLayerDepth = 0.0;
+    // the amount to shift the texture coordinates per layer (from vector P)
+    // 计算纹理坐标偏移
+    vec2 P = viewDir.xy / viewDir.z * heightScale;
+    vec2 deltaTexCoords = P / numLayers;
+
+    // get initial values
+    vec2  currentTexCoords     = texCoords;
+    float currentDepthMapValue = texture(depthMap, currentTexCoords).r;
+
+    // 遍历所有层，从上开始，直到找到小于这一层的深度值的深度贴图值
+    while(currentLayerDepth < currentDepthMapValue) {
+        // shift texture coordinates along direction of P
+        currentTexCoords -= deltaTexCoords;
+        // get depthmap value at current texture coordinates
+        currentDepthMapValue = texture(depthMap, currentTexCoords).r;
+        // get depth of next layer
+        currentLayerDepth += layerDepth;
+    }
+
+    return currentTexCoords;
 }
 
-// 陡峭视差映射
+// 视差遮蔽映射
 //vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) {
 //    // number of depth layers
 //    const float minLayers = 8;
@@ -41,8 +77,7 @@ vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) {
 //    vec2  currentTexCoords     = texCoords;
 //    float currentDepthMapValue = texture(depthMap, currentTexCoords).r;
 //
-//    while(currentLayerDepth < currentDepthMapValue)
-//    {
+//    while(currentLayerDepth < currentDepthMapValue) {
 //        // shift texture coordinates along direction of P
 //        currentTexCoords -= deltaTexCoords;
 //        // get depthmap value at current texture coordinates
@@ -65,8 +100,7 @@ vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) {
 //    return finalTexCoords;
 //}
 
-void main()
-{
+void main() {
     // offset texture coordinates with Parallax Mapping
     vec3 viewDir = normalize(fs_in.TangentViewPos - fs_in.TangentFragPos);
     vec2 texCoords = fs_in.TexCoords;
